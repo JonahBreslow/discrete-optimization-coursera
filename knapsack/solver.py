@@ -62,28 +62,23 @@ def solve_it(input_data):
     (3, True) -> 3 means we order by value / weight, True is descending
     """
     grid = [(1, True), (2, False), (3, True)]
-    results = {}
+    best_greedy_value = 0
     
     for _, enum in enumerate(grid):
-        value = 0
-        weight = 0
-        taken = [0]*len(items)
+        next_greedy_value, weight, next_taken = 0, 0, [0]*len(items)
         items_sorted = sort_tuple(items, enum[0], enum[1])
 
         for item in items_sorted:
-            if weight + item.weight <= capacity:
+            if weight == capacity:
+                break
+            elif weight + item.weight <= capacity:
                 weight += item.weight
-                taken[item.index] = 1
-                value += item.value
+                next_taken[item.index] = 1
+                next_greedy_value += item.value
                 
-        results[_] = {'value': value, 'taken': taken}
-
-    best_greedy_value = 0
-    for idx in results.keys():
-        next_greedy_value = results.get(idx).get('value')
         if next_greedy_value > best_greedy_value:
             best_greedy_value = next_greedy_value
-            best_taken = results.get(idx).get('taken')
+            best_taken = next_taken
             
     value = best_greedy_value
     taken = best_taken
