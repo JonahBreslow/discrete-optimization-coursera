@@ -49,9 +49,18 @@ def solve_it(input_data):
                 )
             )
 
-    # a trivial algorithm for filling the knapsack
-    # it takes items in-order until the knapsack is full
+    """
+    a trivial algorithm for filling the knapsack
+    greedily looks for best option between:
+    1. most valuable
+    2. least heavy
+    3. best value / weight
     
+    `grid` is a bunch of tuples. Example:
+    (1, True) -> 1 means we order by value, and True means it's descending
+    (2, False) -> 2 means we order by weight, and False means it's ascending
+    (3, True) -> 3 means we order by value / weight, True is descending
+    """
     grid = [(1, True), (2, False), (3, True)]
     results = {}
     
