@@ -1,33 +1,10 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 from collections import namedtuple
-from pprint import pprint
-import re
-
 from sqlalchemy import false
+from src.greedy import GreedyKnapsackAlgorithm
 
 Item = namedtuple("Item", ['index', 'value', 'weight', 'norm_value'])
 
-def sort_tuple(tup: tuple, idx: int, reversed: bool):
-    """sorts a tuple
-
-    Args:
-        tup (tuple): tuple to sort
-        idx (int): index to sort tuple on
-        reversed (bool): a boolean whether to reverse the sort or not
-    """
-    return(
-        sorted(
-            tup, 
-            key = lambda x: x[idx],
-            reverse = reversed
-            )
-        )
-
 def solve_it(input_data):
-    # Modify this code to run your optimization algorithm
-
     # parse the input
     lines = input_data.split('\n')
 
@@ -49,39 +26,22 @@ def solve_it(input_data):
                 )
             )
 
-    """
-    a trivial algorithm for filling the knapsack
-    greedily looks for best option between:
-    1. most valuable
-    2. least heavy
-    3. best value / weight
+    # Instantiating the greedy knapsack algorithm class
+    best_knapsack = GreedyKnapsackAlgorithm(items,capacity=capacity)
     
-    `grid` is a bunch of tuples. Example:
-    (1, True) -> 1 means we order by value, and True means it's descending
-    (2, False) -> 2 means we order by weight, and False means it's ascending
-    (3, True) -> 3 means we order by value / weight, True is descending
-    """
+    '''
+    Search greedily over
+    1. maximum value
+    2. minumum weight
+    3. maximum value density (value / weight)
+    '''
     grid = [(1, True), (2, False), (3, True)]
-    best_greedy_value = 0
     
-    for _, enum in enumerate(grid):
-        next_greedy_value, weight, next_taken = 0, 0, [0]*len(items)
-        items_sorted = sort_tuple(items, enum[0], enum[1])
-
-        for item in items_sorted:
-            if weight == capacity:
-                break
-            elif weight + item.weight <= capacity:
-                weight += item.weight
-                next_taken[item.index] = 1
-                next_greedy_value += item.value
-                
-        if next_greedy_value > best_greedy_value:
-            best_greedy_value = next_greedy_value
-            best_taken = next_taken
+    optimal_knapsack = best_knapsack.greedy_choose(grid)
             
-    value = best_greedy_value
-    taken = best_taken
+    value = optimal_knapsack.value
+    taken = optimal_knapsack.taken
+    
     # prepare the solution in the specified output format
     output_data = str(value) + ' ' + str(0) + '\n'
     output_data += ' '.join(map(str, taken))
