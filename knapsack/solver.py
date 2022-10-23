@@ -1,6 +1,10 @@
 from collections import namedtuple
+import os
+from pprint import pprint
+from types import DynamicClassAttribute
 from sqlalchemy import false
-from src.greedy import GreedyKnapsackAlgorithm
+from src.knapsack_algorithms import KnapsackAlgorithms
+
 
 Item = namedtuple("Item", ['index', 'value', 'weight', 'norm_value'])
 
@@ -27,22 +31,31 @@ def solve_it(input_data):
             )
 
     # Instantiating the greedy knapsack algorithm class
-    best_knapsack = GreedyKnapsackAlgorithm(items,capacity=capacity)
+    best_knapsack = KnapsackAlgorithms(items,capacity=capacity)
     
     '''
-    Search greedily over
+    Greedy Algorithm
     1. maximum value
     2. minumum weight
     3. maximum value density (value / weight)
     '''
     grid = [(1, True), (2, False), (3, True)]
     
-    optimal_knapsack = best_knapsack.greedy_choose(grid)
+    greedy_knapsack = best_knapsack.greedy_choose(grid)
             
-    value = optimal_knapsack.value
-    taken = optimal_knapsack.taken
+    value = greedy_knapsack.value
+    taken = greedy_knapsack.taken
     
-    # prepare the solution in the specified output format
+    '''
+    Dynamic Algorithm
+    '''
+    dynamic_knapsack = best_knapsack.dynamic_choose()
+    value = dynamic_knapsack.value
+    taken = dynamic_knapsack.taken
+    
+
+    
+    # # prepare the solution in the specified output format
     output_data = str(value) + ' ' + str(0) + '\n'
     output_data += ' '.join(map(str, taken))
     return output_data
@@ -56,5 +69,7 @@ if __name__ == '__main__':
             input_data = input_data_file.read()
         print(solve_it(input_data))
     else:
-        print('This test requires an input file.  Please select one from the data directory. (i.e. python solver.py ./data/ks_4_0)')
-
+        file_location = 'knapsack/data/ks_30_0'
+        with open(file_location, 'r') as input_data_file:
+            input_data = input_data_file.read()
+        print(solve_it(input_data))
