@@ -69,7 +69,7 @@ if __name__ == '__main__':
             input_data = input_data_file.read()
         print(solve_it(input_data))
     else:
-        file_location = 'knapsack/data/ks_30_0'
+        file_location = 'knapsack/data/ks_400_0'
         with open(file_location, 'r') as input_data_file:
             input_data = input_data_file.read()
         print(solve_it(input_data))

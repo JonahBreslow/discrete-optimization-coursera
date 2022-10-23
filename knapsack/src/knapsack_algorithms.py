@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List
 import time 
-import math
+from tqdm import tqdm
 
 import numpy as np
 
@@ -66,13 +66,18 @@ class KnapsackAlgorithms:
         return ChosenKnapsack(best_greedy_value,best_taken)
     
     def dynamic_choose(self):
+        """
+        #TODO write the doc string
+
+        Returns:
+            _type_: _description_
+        """
         items = np.asarray(self.tuples, dtype=int)[:,0:3]
-        st = time.monotonic()
         weight_array = np.array([cap for cap in items[:,2]])
         matrix_dimensions = (self._capacity+1, self._length+1)
         dynamic_matrix = np.zeros(matrix_dimensions, dtype=int)
         take_array = np.zeros(self._length, dtype=int)
-        for capacity in range(1, matrix_dimensions[0]):
+        for capacity in tqdm(range(1, matrix_dimensions[0])):
             for n_item in range(1, matrix_dimensions[1]):
                 item_idx = n_item-1
                 item_value = items[item_idx, 1]
@@ -112,9 +117,6 @@ class KnapsackAlgorithms:
                         
                     i -= 1
                 
-        et = time.monotonic()
-        elapsed = et - st
-    
         optimal_value = np.max(dynamic_matrix)
         return ChosenKnapsack(optimal_value, take_array)
     
