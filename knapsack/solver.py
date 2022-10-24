@@ -30,35 +30,38 @@ def solve_it(input_data):
                 )
             )
 
-    # Instantiating the greedy knapsack algorithm class
     best_knapsack = KnapsackAlgorithms(items,capacity=capacity)
+    branch_bound_knapsack = best_knapsack.branch_and_bound()
+    return branch_bound_knapsack
+    # # Instantiating the greedy knapsack algorithm class
+    # if len(items) > 200:
+    #     '''
+    #     Greedy Algorithm
+    #     1. maximum value
+    #     2. minumum weight
+    #     3. maximum value density (value / weight)
+    #     '''
+    #     grid = [(1, True), (2, False), (3, True)]
+        
+    #     greedy_knapsack = best_knapsack.greedy_choose(grid)
+                
+    #     value = greedy_knapsack.value
+    #     taken = greedy_knapsack.taken
     
-    '''
-    Greedy Algorithm
-    1. maximum value
-    2. minumum weight
-    3. maximum value density (value / weight)
-    '''
-    grid = [(1, True), (2, False), (3, True)]
-    
-    greedy_knapsack = best_knapsack.greedy_choose(grid)
-            
-    value = greedy_knapsack.value
-    taken = greedy_knapsack.taken
-    
-    '''
-    Dynamic Algorithm
-    '''
-    dynamic_knapsack = best_knapsack.dynamic_choose()
-    value = dynamic_knapsack.value
-    taken = dynamic_knapsack.taken
+    # else:
+    #     '''
+    #     Dynamic Algorithm
+    #     '''
+    #     dynamic_knapsack = best_knapsack.dynamic_choose()
+    #     value = dynamic_knapsack.value
+    #     taken = dynamic_knapsack.taken
     
 
     
-    # # prepare the solution in the specified output format
-    output_data = str(value) + ' ' + str(0) + '\n'
-    output_data += ' '.join(map(str, taken))
-    return output_data
+    # # # prepare the solution in the specified output format
+    # output_data = str(value) + ' ' + str(0) + '\n'
+    # output_data += ' '.join(map(str, taken))
+    # return output_data
 
 
 if __name__ == '__main__':
@@ -67,9 +70,9 @@ if __name__ == '__main__':
         file_location = sys.argv[1].strip()
         with open(file_location, 'r') as input_data_file:
             input_data = input_data_file.read()
-        print(solve_it(input_data))
+        pprint(solve_it(input_data))
     else:
-        file_location = 'knapsack/data/ks_400_0'
+        file_location = 'knapsack/data/ks_4_0'
         with open(file_location, 'r') as input_data_file:
             input_data = input_data_file.read()
         print(solve_it(input_data))
