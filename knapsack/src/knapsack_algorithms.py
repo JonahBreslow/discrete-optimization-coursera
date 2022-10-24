@@ -153,19 +153,18 @@ class KnapsackAlgorithms:
             
             item_iterator += 1
         
-        idealized_upper_bound_value = max_knapsack_value
         take_array = np.zeros(self._length, dtype=int)
         root_node = Node(
             item=0,
             taken_items=take_array,
             weight=0,
             value=0,
-            idealized_value=idealized_upper_bound_value,
+            idealized_value=max_knapsack_value,
             terminal=False
         )
         
         # setting things up for this awesome loop
-        stack = [root_node]
+        stack = [root_node, root_node]
         max_realized_value = 0
         best_taken_items = []
         stack_len = 2
@@ -188,7 +187,7 @@ class KnapsackAlgorithms:
                     best_taken_items = current_taken_items
             # if the node has a current_idealized_value less than or equal to the current best,
             # ignore this node
-            elif current_idealized_value < max_realized_value:
+            elif current_idealized_value <= max_realized_value:
                 pass
                 
             # if the node is not terminal and has the potential to beat the current best, and
@@ -218,7 +217,7 @@ class KnapsackAlgorithms:
                     value = current_value,
                     idealized_value = min(
                         current_idealized_value,
-                        np.sum((item[2] for item in self.tuples[next_item_idx+1:]))
+                        current_value + np.sum((item[1] for item in self.tuples[next_item_idx:]))
                         ),
                     terminal = next_item_idx == self._length
                 )
