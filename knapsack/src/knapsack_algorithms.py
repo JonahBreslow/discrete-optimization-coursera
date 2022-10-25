@@ -128,6 +128,29 @@ class KnapsackAlgorithms:
         optimal_value = np.max(dynamic_matrix)
         return ChosenKnapsack(optimal_value, take_array)
     
+    def linear_relaxation_bound (
+        self, 
+        items_sorted: List,
+        weight: int, value: int, 
+        item_iterator: int
+        ) -> int:
+        while weight < self._capacity and item_iterator < len(items_sorted):
+            # get item information
+            item = items_sorted[item_iterator]
+            item_weight, item_value = item.weight, item.value
+            # how much knapsack capacity is left
+            excess_capacity = self._capacity - weight
+            # figuring out how much of the item we can insert into the knapsack
+            if excess_capacity >= item_weight:
+                pct_item = 1
+            else:
+                pct_item = excess_capacity / item_weight
+            value += item_value * pct_item
+            weight += item_weight * pct_item
+            
+            item_iterator += 1
+        return value
+    
     def branch_and_bound(self) -> ChosenKnapsack:
         """_summary_
         """
@@ -136,22 +159,12 @@ class KnapsackAlgorithms:
         
         # iteratively take the best item and then use linear relaxation to 
         # fill the knapsack on the last item (if the whole item doesn't fit)
-        max_knapsack_weight, max_knapsack_value, item_iterator= 0, 0, 0
-        while max_knapsack_weight < self._capacity:
-            # get the item information
-            item = items_sorted[item_iterator]
-            item_weight, item_value = item.weight, item.value
-            # how much knapsack capacity is left
-            excess_capacity = self._capacity - max_knapsack_weight
-            # figuring out how much of the item we can insert into the knapsack
-            if excess_capacity >= item_weight:
-                pct_item = 1
-            else:
-                pct_item = excess_capacity / item_weight
-            max_knapsack_value += item_value * pct_item
-            max_knapsack_weight += item_weight * pct_item
-            
-            item_iterator += 1
+        max_knapsack_value = self.linear_relaxation_bound(
+            items_sorted=items_sorted,
+            weight=0,
+            value=0,
+            item_iterator=0
+            )
         
         take_array = np.zeros(self._length, dtype=int)
         root_node = Node(
@@ -164,90 +177,99 @@ class KnapsackAlgorithms:
         )
         
         # setting things up for this awesome loop
-        stack = [root_node, root_node]
+        stack = [root_node]
         max_realized_value = 0
         best_taken_items = []
-        stack_len = 2
-        while stack_len>1:
+        while len(stack)>0:
             # get current node off the stack
-            stack_len = len(stack)
             node = stack.pop()
-            current_weight = node.weight
-            current_value = node.value
-            current_idealized_value = node.idealized_value
-            current_taken_items = node.taken_items
-            next_item_idx = node.item + 1
-            print(node.item)
-            
+            next_item_idx = node.item + 1  
+    
             # if node is a terminal node, check to see if it is the best so far
             # if so, update the max_realized_value and best_taken_items objects
             if node.terminal == True:
-                if current_value > max_realized_value:
-                    max_realized_value = current_value
-                    best_taken_items = current_taken_items
+                if node.value > max_realized_value:
+                    max_realized_value = node.value
+                    best_taken_items = node.taken_items
             # if the node has a current_idealized_value less than or equal to the current best,
             # ignore this node
-            elif current_idealized_value <= max_realized_value:
+            elif node.idealized_value <= max_realized_value:
                 pass
                 
             # if the node is not terminal and has the potential to beat the current best, and
             # the next item actually exists let's do it!
+
             elif next_item_idx <= self._length :
                 # Finding the next item in the list of possibilities
                 next_item_object = items_sorted[next_item_idx - 1]
                 item_weight, item_value = next_item_object.weight, next_item_object.value
                 
                 # The node constructed by choosing the next item (assuming not terminal unless end of items)
-                taken_items_array = current_taken_items.copy()
-                taken_items_array[next_item_idx - 1] = 1
+                taken_items_array = node.taken_items.copy()
+                taken_items_array[next_item_object[0]] = 1
                 choose_node = Node(
                     item = next_item_idx,
                     taken_items = taken_items_array,
-                    weight = current_weight + item_weight,
-                    value = current_value + item_value,
-                    idealized_value = current_idealized_value,
+                    weight = node.weight + item_weight,
+                    value = node.value + item_value,
+                    idealized_value = node.idealized_value,
                     terminal = next_item_idx == self._length
                 )
                 
                 # The node constructed by ignoring the next item (assuming not terminal unless end of items)
+                # First, find new idealized_value with new options
+                new_bound = self.linear_relaxation_bound(
+                    items_sorted=items_sorted,
+                    weight=node.weight,
+                    value=node.value,
+                    item_iterator=next_item_idx
+                    )
+                
                 ignore_node = Node(
                     item = next_item_idx,
-                    taken_items = current_taken_items,
-                    weight = current_weight,
-                    value = current_value,
+                    taken_items = node.taken_items,
+                    weight = node.weight,
+                    value = node.value,
                     idealized_value = min(
-                        current_idealized_value,
-                        current_value + np.sum((item[1] for item in self.tuples[next_item_idx:]))
+                        node.idealized_value,
+                        new_bound
                         ),
                     terminal = next_item_idx == self._length
                 )
                 
+                # if smallest of remaning items doesn't fit,
+                # then any combo of them also will not fit. DO NOT PUT ON STACK
+                if next_item_idx == self._length:
+                    smallest_remaining_item_size = 0
+                else: 
+                    smallest_remaining_item_size = np.min([item[2] for item in items_sorted[next_item_idx:]])
+                    
+                smallest_remaining_capacity =self._capacity - node.weight
+                if smallest_remaining_item_size > smallest_remaining_capacity:
+                    if node.value > max_realized_value:
+                        max_realized_value = node.value
+                        best_taken_items = node.taken_items
                 # if adding next item keeps weight under capacity, and the optimistic idealized weight 
                 # is > the current max_realized_value, add both nodes to the stack
-                if current_weight + item_weight < self._capacity :
+                elif node.weight + item_weight < self._capacity :
                     stack.append(ignore_node)
                     stack.append(choose_node)
-                    stack_len = len(stack)
                 # if adding next item keeps weight exactly as capacity, and the optimistic idealized weight 
                 # is > the current max_realized_value, add both nodes to the stack and mark as terminal
-                elif current_weight + item_weight == self._capacity :
+                elif node.weight + item_weight == self._capacity :
                     choose_node.terminal = True
-                    stack_len = len(stack)
+                    stack.append(ignore_node)
+                    stack.append(choose_node)
+                
                 # if adding next item esceeds weight capacity, and the optimistic idealized weight 
                 # is > the current max_realized_value, add both nodes to the stack
                 else:
                     stack.append(ignore_node)
-                    stack_len = len(stack)
             # if next item doesn't exist it is therefore terminal in a sense
             elif next_item_idx-1 == self._length:
-                if current_value > max_realized_value:
-                    max_realized_value = current_value
-                    best_taken_items = current_taken_items
-                    
-            
-                    
-                
-                
+                if node.value > max_realized_value:
+                    max_realized_value = node.value
+                    best_taken_items = node.taken_items
         
         return ChosenKnapsack(max_realized_value, best_taken_items)
             
