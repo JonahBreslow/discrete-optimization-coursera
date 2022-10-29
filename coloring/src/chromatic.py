@@ -1,6 +1,8 @@
-from typing import NewType, Tuple, List
+from typing import Dict, NewType, Tuple, List
+from collections import OrderedDict
+from matplotlib import pyplot as plt
 import networkx as nx
-
+import numpy as np
 
 """Datatype defining what a list of Edges is
 
@@ -19,21 +21,64 @@ class Network():
         self.edges = self.graph.edges()
         self.n_nodes = len(self.nodes)
         self.n_edges = len(self.edges)
+        self.n_neighbors = self._n_neighbors_array()
+        self.network_dict = self._create_network_dict()
+        self.max_color_set = set([num for num in range(self.n_nodes)])
         self.node_coloring = {}
+        self.constraint_node_coloring = {}
                 
     def _create_network(self):
         G = nx.Graph()
         G.add_edges_from(self.edges_import)
         return G
+    
+    def _create_network_dict(self) -> Dict:
+        """Creates a dictionary that defines the network. 
+
+        Returns:
+            Dict: keys are nodes, values are lists of neighbors for the node
+        """
+        network_dict = {}
+        for node in self.nodes:
+            neighbors = self.get_neighbors_for_node(node)
+            network_dict[node] = neighbors
+        return network_dict
+    
+    def draw_graph(self):
+        nx.draw_spring(self.graph, with_labels=True)
+        plt.show()
         
-    def get_neighbors_for_node(self, node:int):
+    def reset_node_coloring(self):
+        self.node_coloring = {}
+        return
+    
+    def get_neighbors_for_node(self, node:int) -> List:
         assert node in self.nodes
-        return self.graph.neighbors(node)
+        return [node for node in self.graph.neighbors(node)]
+    
+    def _n_neighbors_array(self) -> np.ndarray:
+        """creates a two-column numpy array where the 0th column is the node-id
+        and the 1st column is the count of neighbors that the 0th column's node has.
+
+        Returns:
+            np.ndarray: a two-column numpy array where the 0th column is the node-id 
+            and the 1st column is the count of neighbors that the 0th column's node has.
+        """
+        # Order the nodes highest degree first
+        n_neighbors = np.zeros(shape=(self.n_nodes, 2), dtype=int)
+        for node in self.nodes:
+            n_neighbors[node, 0] = node
+            n_neighbors[node, 1] = len(self.get_neighbors_for_node(node))
+        n_neighbors = n_neighbors[n_neighbors[:,1].argsort()[::-1]]
+        return n_neighbors
     
     def greedy_color_node(self, node: int) -> int:
-        """This method is a greedy algorithm that approximates the color of a 
-        given node if the network is at its chromatic number.
-
+        """This implements a greedy node coloring algorithm using node . The number of colors
+        applied to nodes in the graph approximates a minimum. A node-coloring 
+        algorithm that achieves the optimal (minimum) number, k, of colors such that 
+        any two connected nodes are not the same color is called a k-chromatic graph
+        algorithm.
+ 
         Args:
             node (int): the identifier of a single node
 
@@ -42,8 +87,6 @@ class Network():
         """
         # checking that the node is valid
         assert node in self.nodes
-        # upper bound of the number of colors based on number of nodes
-        max_color_set = set([num for num in range(self.n_nodes)])
         
         # getting a list of neighgbors
         neighbor_coloring = []
@@ -55,15 +98,120 @@ class Network():
         
         # choosing the smallest color that is not taken by one of the neighbors
         neighbor_coloring = set(neighbor_coloring)
-        node_color = min(max_color_set - neighbor_coloring)
+        node_color = min(self.max_color_set - neighbor_coloring)
         
         # updating the node coloring dictionary
         self.node_coloring[node] = node_color
         
         return node_color
+
     
-    def greedy_color(self):
-        return [self.greedy_color_node(node) for node in self.nodes]
+    def greedy_coloring(self):
+        """ This implements a greedy-node coloring algorithm such that the number of colors
+        applied to nodes in the graph approximates a lower bound. A node-coloring 
+        algorithm that achieves the minimum number of colors, k, such that 
+        any two connected nodes are not the same color is called a k-chromatic graph algorithm.
+        See https://mathworld.wolfram.com/k-ChromaticGraph.html
+
+        Returns:
+            None
+        """
+        self.reset_node_coloring()
+        for node in self.n_neighbors[:,0]:
+            self.greedy_color_node(node)
+        
+            
+        # update the node coloring dictionary so it is ordered
+        self.node_coloring = OrderedDict(sorted(self.node_coloring.items()))
+        return self.node_coloring 
+    
+    def rlf(self):
+        self.reset_node_coloring()
+        
+        # The first vertex added is the vertex that has the largest number of neighbors
+        temp_graph = self.graph.copy()
+        color = 0
+        
+        
+        while len(temp_graph.nodes) > 0:
+            adj_dict = temp_graph._adj
+            # Finding initial node
+            max_len = 0
+            init_node =""
+            for key in adj_dict.keys():
+                cur_len = len(adj_dict.get(key))
+                if cur_len > max_len:
+                    init_node = key
+                    max_len = cur_len
+            maximal_independent_set_iter = {init_node}
+            maximal_independent_set_neigh = []
+            keep_going=True
+            
+            while keep_going:
+                maximal_independent_set_neigh = \
+                        set(sum([self.get_neighbors_for_node(node) for node in maximal_independent_set_iter], []))
+                
+                # Subsequent vertices are chosen where (a) they are not currently adjacent to vertices in 
+                # maximal_independent_set and (b) they have a maximal number of neighbors that are adjecent to vertices
+                # in maximal_independent_set.
+                            
+                # (a) nodes not currently adjacent to nodes in maximal_independent_set
+                nodes_not_adjacent_to_max_adj_set = []
+                for node in self.network_dict.keys():
+                    neighbors = set(self.network_dict.get(node))
+                    # If intersecting set is more than 0 nodes, intersection is set to True
+                    intersection = len(neighbors.intersection(maximal_independent_set_iter)) > 0
+                    if node in maximal_independent_set_iter:
+                        pass
+                    elif not intersection:
+                        nodes_not_adjacent_to_max_adj_set.append(node)
+                
+                # (b) For nodes from the previous step, find the number of neighbors that are adjacent to the 
+                # maximal_independent_set
+                n_adj_neighbors = {}
+                for node in nodes_not_adjacent_to_max_adj_set:
+                    neighbors = set(self.network_dict.get(node))
+                    num_adjacent = len(neighbors.intersection(maximal_independent_set_neigh))
+                    if n_adj_neighbors.get(num_adjacent) is None:
+                        n_adj_neighbors[num_adjacent] = [node]
+                    else:
+                        n_adj_neighbors[num_adjacent].append(node)
+                if len(n_adj_neighbors.keys()) == 0:
+                    keep_going = False
+                else:
+                    max_n_adj_neighbors = max(n_adj_neighbors.keys())
+                    best_nodes = n_adj_neighbors.get(max_n_adj_neighbors)    
+                    
+                    # c tie breaker
+                    if len(best_nodes) > 1:
+                        tie_breaker = np.inf
+                        best_node = best_nodes[0]
+                        for node in best_nodes:
+                            neighbors = set([neighbor for neighbor in self.get_neighbors_for_node(node)])
+                            neighbors_not_in_s = neighbors - maximal_independent_set_iter
+                            if len(neighbors_not_in_s) < tie_breaker:
+                                tie_breaker = len(neighbors_not_in_s)
+                                best_node = node
+                    elif len(best_nodes) == 1:
+                        best_node = best_nodes[0]
+                    
+                    maximal_independent_set_iter.add(best_node)      
+                    keep_going = (
+                        len(nodes_not_adjacent_to_max_adj_set) > 0 
+                        or len(n_adj_neighbors.keys) >0
+                    )
+            for node in maximal_independent_set_iter:
+                self.node_coloring[node] = color
+            
+            color += 1
+            temp_graph.remove_nodes_from(maximal_independent_set_iter)  
+
+        return True
+        
+        
+        
+        
+        
         
             
         
