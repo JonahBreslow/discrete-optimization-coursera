@@ -1,8 +1,11 @@
+from os import stat
 from typing import Dict, NewType, Tuple, List
 from collections import OrderedDict
 from matplotlib import pyplot as plt
 import networkx as nx
 import numpy as np
+from copy import copy
+from tqdm import tqdm
 
 """Datatype defining what a list of Edges is
 
@@ -22,17 +25,15 @@ class Network():
         self.n_nodes = len(self.nodes)
         self.n_edges = len(self.edges)
         self.n_neighbors = self._n_neighbors_array()
-        self.network_dict = self._create_network_dict()
+        # self.network_dict = self._create_network_dict()
         self.max_color_set = set([num for num in range(self.n_nodes)])
-        self.node_coloring = {}
-        self.constraint_node_coloring = {}
                 
     def _create_network(self):
         G = nx.Graph()
         G.add_edges_from(self.edges_import)
         return G
     
-    def _create_network_dict(self) -> Dict:
+    def network_dict(self) -> Dict:
         """Creates a dictionary that defines the network. 
 
         Returns:
@@ -44,16 +45,8 @@ class Network():
             network_dict[node] = neighbors
         return network_dict
     
-    def draw_graph(self):
-        nx.draw_spring(self.graph, with_labels=True)
-        plt.show()
-        
-    def reset_node_coloring(self):
-        self.node_coloring = {}
-        return
-    
     def get_neighbors_for_node(self, node:int) -> List:
-        assert node in self.nodes
+        assert node in self.graph.nodes()
         return [node for node in self.graph.neighbors(node)]
     
     def _n_neighbors_array(self) -> np.ndarray:
@@ -72,6 +65,20 @@ class Network():
         n_neighbors = n_neighbors[n_neighbors[:,1].argsort()[::-1]]
         return n_neighbors
     
+    def draw_graph(self):
+        nx.draw_spring(self.graph, with_labels=True)
+        plt.show()
+        
+ 
+class NodeColoringAlgorithms:
+    def __init__(self, network: Network) -> None:
+        self.network = network
+        self.node_coloring = {}
+               
+    def reset_node_coloring(self):
+        self.node_coloring = {}
+        return
+    
     def greedy_color_node(self, node: int) -> int:
         """This implements a greedy node coloring algorithm using node . The number of colors
         applied to nodes in the graph approximates a minimum. A node-coloring 
@@ -86,11 +93,11 @@ class Network():
             int: the color of the node using a greedy algorithm
         """
         # checking that the node is valid
-        assert node in self.nodes
+        assert node in self.network.nodes
         
         # getting a list of neighgbors
         neighbor_coloring = []
-        neighbors = self.get_neighbors_for_node(node=node)
+        neighbors = self.network.get_neighbors_for_node(node=node)
         # finding the colors of the neighbors (if exist)
         for neighbor in neighbors:
             neighbor_color = self.node_coloring.get(neighbor)
@@ -98,7 +105,7 @@ class Network():
         
         # choosing the smallest color that is not taken by one of the neighbors
         neighbor_coloring = set(neighbor_coloring)
-        node_color = min(self.max_color_set - neighbor_coloring)
+        node_color = min(self.network.max_color_set - neighbor_coloring)
         
         # updating the node coloring dictionary
         self.node_coloring[node] = node_color
@@ -117,7 +124,7 @@ class Network():
             None
         """
         self.reset_node_coloring()
-        for node in self.n_neighbors[:,0]:
+        for node in self.network.n_neighbors[:,0]:
             self.greedy_color_node(node)
         
             
@@ -129,18 +136,18 @@ class Network():
         self.reset_node_coloring()
         
         # The first vertex added is the vertex that has the largest number of neighbors
-        temp_graph = self.graph.copy()
+        temp_graph = copy(self.network)
         color = 0
         
-        
+        pbar = tqdm(total = len(temp_graph.nodes))
         while len(temp_graph.nodes) > 0:
-            adj_dict = temp_graph._adj
+            adj_dict = temp_graph.graph.adj
             # Finding initial node
             max_len = 0
             init_node =""
             for key in adj_dict.keys():
                 cur_len = len(adj_dict.get(key))
-                if cur_len > max_len:
+                if cur_len >= max_len:
                     init_node = key
                     max_len = cur_len
             maximal_independent_set_iter = {init_node}
@@ -149,7 +156,8 @@ class Network():
             
             while keep_going:
                 maximal_independent_set_neigh = \
-                        set(sum([self.get_neighbors_for_node(node) for node in maximal_independent_set_iter], []))
+                        set(sum([temp_graph.get_neighbors_for_node(node)
+                                 for node in maximal_independent_set_iter], []))
                 
                 # Subsequent vertices are chosen where (a) they are not currently adjacent to vertices in 
                 # maximal_independent_set and (b) they have a maximal number of neighbors that are adjecent to vertices
@@ -157,8 +165,9 @@ class Network():
                             
                 # (a) nodes not currently adjacent to nodes in maximal_independent_set
                 nodes_not_adjacent_to_max_adj_set = []
-                for node in self.network_dict.keys():
-                    neighbors = set(self.network_dict.get(node))
+                network_dict = temp_graph.network_dict()
+                for node in network_dict.keys():
+                    neighbors = set(network_dict.get(node))
                     # If intersecting set is more than 0 nodes, intersection is set to True
                     intersection = len(neighbors.intersection(maximal_independent_set_iter)) > 0
                     if node in maximal_independent_set_iter:
@@ -170,7 +179,7 @@ class Network():
                 # maximal_independent_set
                 n_adj_neighbors = {}
                 for node in nodes_not_adjacent_to_max_adj_set:
-                    neighbors = set(self.network_dict.get(node))
+                    neighbors = set(network_dict.get(node))
                     num_adjacent = len(neighbors.intersection(maximal_independent_set_neigh))
                     if n_adj_neighbors.get(num_adjacent) is None:
                         n_adj_neighbors[num_adjacent] = [node]
@@ -187,7 +196,7 @@ class Network():
                         tie_breaker = np.inf
                         best_node = best_nodes[0]
                         for node in best_nodes:
-                            neighbors = set([neighbor for neighbor in self.get_neighbors_for_node(node)])
+                            neighbors = set([neighbor for neighbor in temp_graph.get_neighbors_for_node(node)])
                             neighbors_not_in_s = neighbors - maximal_independent_set_iter
                             if len(neighbors_not_in_s) < tie_breaker:
                                 tie_breaker = len(neighbors_not_in_s)
@@ -204,9 +213,12 @@ class Network():
                 self.node_coloring[node] = color
             
             color += 1
-            temp_graph.remove_nodes_from(maximal_independent_set_iter)  
+            temp_graph.graph.remove_nodes_from(maximal_independent_set_iter) 
+            pbar.update(len(maximal_independent_set_iter)) 
 
-        return True
+        # update the node coloring dictionary so it is ordered
+        self.node_coloring = OrderedDict(sorted(self.node_coloring.items()))
+        return self.node_coloring 
         
         
         

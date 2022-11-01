@@ -1,6 +1,6 @@
 from ast import List
 from dataclasses import dataclass
-from src.chromatic import Network
+from src.chromatic import Network, NodeColoringAlgorithms
 
 
 def solve_it(input_data):
@@ -22,10 +22,9 @@ def solve_it(input_data):
     # build a trivial solution
     network = Network(edges_import=edges)
     
-    network.draw_graph()
-    # solution = network.greedy_coloring()   
-    # solution = network.greedy_node_coloring.values()
-    solution = network.rlf()
+    # network.draw_graph()
+    color_algo = NodeColoringAlgorithms(network=network)
+    solution = color_algo.rlf().values()
     n_colors = max(solution) + 1
 
 
@@ -47,7 +46,7 @@ if __name__ == '__main__':
             input_data = input_data_file.read()
         print(solve_it(input_data))
     else:
-        file_location = 'coloring/data/gc_20_1'
+        file_location = 'data/gc_250_9'
         with open(file_location, 'r') as input_data_file:
             input_data = input_data_file.read()
         print(solve_it(input_data))
