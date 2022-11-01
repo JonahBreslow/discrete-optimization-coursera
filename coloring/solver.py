@@ -1,7 +1,7 @@
-from ast import List
 from dataclasses import dataclass
+from typing import OrderedDict
 from src.chromatic import Network, NodeColoringAlgorithms
-
+from networkx.algorithms import coloring
 
 def solve_it(input_data):
     # Modify this code to run your optimization algorithm
@@ -22,10 +22,16 @@ def solve_it(input_data):
     # build a trivial solution
     network = Network(edges_import=edges)
     
-    # network.draw_graph()
-    color_algo = NodeColoringAlgorithms(network=network)
-    solution = color_algo.rlf().values()
-    n_colors = max(solution) + 1
+    # # my custom algorithms
+    # # network.draw_graph()
+    # color_algo = NodeColoringAlgorithms(network=network)
+    # solution = color_algo.rlf_sampling(n_searches=10000).values()
+    # n_colors = max(solution) + 1
+
+    # built in greedy algorithms
+    solution = coloring.greedy_color(network.graph, strategy='independent_set', interchange=False)
+    solution = OrderedDict(sorted(solution.items())).values()
+    n_colors = max(solution) 
 
 
 
@@ -46,7 +52,7 @@ if __name__ == '__main__':
             input_data = input_data_file.read()
         print(solve_it(input_data))
     else:
-        file_location = 'data/gc_250_9'
+        file_location = 'data/gc_500_1'
         with open(file_location, 'r') as input_data_file:
             input_data = input_data_file.read()
         print(solve_it(input_data))

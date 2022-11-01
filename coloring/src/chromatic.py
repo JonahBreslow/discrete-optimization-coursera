@@ -1,4 +1,6 @@
-from os import stat
+import enum
+from mimetypes import init
+import random
 from typing import Dict, NewType, Tuple, List
 from collections import OrderedDict
 from matplotlib import pyplot as plt
@@ -131,8 +133,68 @@ class NodeColoringAlgorithms:
         # update the node coloring dictionary so it is ordered
         self.node_coloring = OrderedDict(sorted(self.node_coloring.items()))
         return self.node_coloring 
+
+    def rlf_sampling(self, n_searches: int) -> Dict:
+        """This is a non-deterministic approach to the Recursive Largest First algorithm that
+        leverages the `networkx.maximal_independent_set` method, which randomly selects a 
+        subset of nodes in graph G such that no edges can be drawn between any of the selected nodes. 
+        This implementation will execute this method `n_searches` number of times and will always
+        select the subset of nodes that is the largest. 
+
+        Args:
+            n_searches (int): the number of maximal_independent_set samples to take
+
+        Returns:
+            Dict: A dictionary where the key is the node and the value is the color
+        """
+        self.reset_node_coloring
+
+        temp_graph = copy(self.network.graph)
+        color = 0
+
+        pbar = tqdm(total = len(temp_graph.nodes))
+        while len(temp_graph.nodes) > 0:
+            adj_dict = temp_graph.adj
+            # Finding initial node
+            max_len = 0
+            init_node =""
+            for key in adj_dict.keys():
+                cur_len = len(adj_dict.get(key))
+                if cur_len >= max_len:
+                    init_node = key
+                    max_len = cur_len
+
+            max_len = 0
+            for iteration, _ in enumerate(range(n_searches)):
+                indep_nodes = nx.maximal_independent_set(temp_graph, nodes=[init_node])
+                if len(indep_nodes) > max_len:
+                    max_independent_set = indep_nodes
+                    max_len = len(indep_nodes)
+            
+            for node in max_independent_set:
+                self.node_coloring[node] = color
+            
+            color += 1
+            temp_graph.remove_nodes_from(max_independent_set) 
+            pbar.update(len(max_independent_set)) 
+
+        # update the node coloring dictionary so it is ordered
+        self.node_coloring = OrderedDict(sorted(self.node_coloring.items()))
+        return self.node_coloring 
+
+
+        
     
-    def rlf(self):
+    def rlf(self) -> Dict:
+        """Implements the Recursive Largest First algorithm described here: 
+        https://en.wikipedia.org/wiki/Recursive_largest_first_algorithm. Unfortunately, 
+        the heuristic used in this approach to estimating the maximal independent set is 
+        O(2^n)-ish so this is not a performant approach. Use `rlf_sampling` for a faster, 
+        but non-deterministic, approach.
+
+        Returns:
+            Dict: A dictionary where the key is the node and the value is the color
+        """
         self.reset_node_coloring()
         
         # The first vertex added is the vertex that has the largest number of neighbors
