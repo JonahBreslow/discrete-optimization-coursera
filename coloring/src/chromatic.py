@@ -1,13 +1,11 @@
-import enum
-from mimetypes import init
-import random
 from typing import Dict, NewType, Tuple, List
 from collections import OrderedDict
 from matplotlib import pyplot as plt
 import networkx as nx
 import numpy as np
-from copy import copy
+from copy import copy, deepcopy
 from tqdm import tqdm
+from dask import delayed, compute, visualize
 
 """Datatype defining what a list of Edges is
 
@@ -134,7 +132,7 @@ class NodeColoringAlgorithms:
         self.node_coloring = OrderedDict(sorted(self.node_coloring.items()))
         return self.node_coloring 
 
-    def rlf_sampling(self, n_searches: int) -> Dict:
+    def rlf_sampling(self, n_searches: int = 1e4) -> Dict:
         """This is a non-deterministic approach to the Recursive Largest First algorithm that
         leverages the `networkx.maximal_independent_set` method, which randomly selects a 
         subset of nodes in graph G such that no edges can be drawn between any of the selected nodes. 
@@ -150,40 +148,72 @@ class NodeColoringAlgorithms:
         self.reset_node_coloring
 
         temp_graph = copy(self.network.graph)
-        color = 0
+        color_iter = 0
 
         pbar = tqdm(total = len(temp_graph.nodes))
         while len(temp_graph.nodes) > 0:
-            adj_dict = temp_graph.adj
-            # Finding initial node
-            max_len = 0
-            init_node =""
-            for key in adj_dict.keys():
-                cur_len = len(adj_dict.get(key))
-                if cur_len >= max_len:
-                    init_node = key
-                    max_len = cur_len
+            init_node = sorted(temp_graph.degree, key=lambda x: x[1], reverse=True)[0][0]
 
             max_len = 0
-            for iteration, _ in enumerate(range(n_searches)):
-                indep_nodes = nx.maximal_independent_set(temp_graph, nodes=[init_node])
+            iteration = 0
+
+            while iteration < n_searches:
+                indep_nodes = nx.maximal_independent_set(
+                    temp_graph, nodes=[init_node], seed=None
+                )
                 if len(indep_nodes) > max_len:
                     max_independent_set = indep_nodes
                     max_len = len(indep_nodes)
-            
+                iteration += 1
+
             for node in max_independent_set:
-                self.node_coloring[node] = color
-            
-            color += 1
-            temp_graph.remove_nodes_from(max_independent_set) 
+                self.node_coloring[node] = color_iter
+
+            color_iter += 1
+            temp_graph.remove_nodes_from(max_independent_set)
             pbar.update(len(max_independent_set)) 
 
         # update the node coloring dictionary so it is ordered
         self.node_coloring = OrderedDict(sorted(self.node_coloring.items()))
         return self.node_coloring 
 
+    def _rlf_parallel(self):
 
+        temp_graph = deepcopy(self.network.graph)
+        color_iter = 0
+        color = {}
+        while len(temp_graph.nodes) > 0:
+            init_node = sorted(temp_graph.degree, key=lambda x: x[1], reverse=True)[0][0]
+            max_independent_set = nx.maximal_independent_set(
+                    temp_graph, nodes=[init_node], seed=None
+                )
+            for node in max_independent_set:
+                color[node] = color_iter
+            temp_graph.remove_nodes_from(max_independent_set)
+            color_iter += 1
+
+        return color, color_iter
+
+    def rlf_parallel(self, n_searches: int = 1_000) -> Dict:
+        # TODO speed this up, this comprehension is super slow
+        delayed_results = \
+            {iteration: delayed(self._rlf_parallel()) for iteration in range(n_searches)}
         
+        results = compute(delayed_results)[0]
+        min_color = self.network.n_nodes
+        self.node_coloring = {}
+        for key in results.keys():
+            n_colors = results.get(key)[1]
+            if n_colors <= min_color:
+                min_color = n_colors
+                self.node_coloring = results.get(key)[0]
+        
+        # update the node coloring dictionary so it is ordered
+        self.node_coloring = OrderedDict(sorted(self.node_coloring.items()))
+        
+        return self.node_coloring
+
+
     
     def rlf(self) -> Dict:
         """Implements the Recursive Largest First algorithm described here: 
