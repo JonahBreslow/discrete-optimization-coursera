@@ -1,4 +1,6 @@
 import math
+import networkx as nx
+import matplotlib.pyplot as plt
 
 def length(point1, point2) -> float:
     """Computes the euclidean distance between 2 points
@@ -10,7 +12,9 @@ def length(point1, point2) -> float:
     Returns:
         float: L2 norm (euclidean norm) between 2 points
     """
-    return math.sqrt((point1.x - point2.x)**2 + (point1.y - point2.y)**2)
+    return math.sqrt(
+        (point1['coords'][0] - point2['coords'][0])**2 + 
+        (point1['coords'][1] - point2['coords'][1])**2)
 
 def edges(path):
     """converts a path list of tuples into edges for networkx graph

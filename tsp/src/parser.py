@@ -1,4 +1,5 @@
 from random import sample
+import networkx as nx
 
 from src.coordinate_node import CoordinateNode
 
@@ -25,9 +26,15 @@ class PointParser:
             items = sample(items, self.n_samples)
             pass
 
-        for i in items:
+        for i in range(1, self.node_count+1):
             line = self.lines[i]
             parts = line.split()
             points[i-1] = CoordinateNode(i-1, (float(parts[0]), float(parts[1])))
+        
+        graph = nx.DiGraph()
 
-        return points
+        coor_attrs = {k:{'coords':(v.x, v.y)} for k, v in points.items()}
+        graph.add_nodes_from(k for k in points.keys())
+        nx.set_node_attributes(graph, coor_attrs)
+
+        return graph
